@@ -268,11 +268,9 @@ async function graphWeight() {
         // Find the intial range, from first block to current block
         var startBlock, endBlock;
 
-        if (document.getElementById('startBlock').value) {
-            startBlock = parseInt(document.getElementById('startBlock').value);
-        } else {
-            startBlock = parseInt(await getFirstBlock());
-        }
+		// blocks per day for 6 second blockchains
+		const DAY = 10 * 60 * 24;
+		const WEEK = 7 * DAY;
 
         if (document.getElementById('endBlock').value) {
             endBlock = parseInt(document.getElementById('endBlock').value);
@@ -280,6 +278,12 @@ async function graphWeight() {
             endBlock = parseInt(await substrate.derive.chain.bestNumber());
             console.log('End Block:', endBlock);
         }
+
+		if (document.getElementById('startBlock').value) {
+			startBlock = parseInt(document.getElementById('startBlock').value);
+		} else {
+			startBlock = parseInt(endBlock - WEEK);
+		}
 
         // Check that the range is valid
         if (startBlock >= 0 && startBlock < endBlock) {
