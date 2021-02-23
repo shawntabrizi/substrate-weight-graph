@@ -47,8 +47,6 @@ async function getWeightInRange(startBlock, endBlock) {
     try {
         var promises = [];
 
-        console.log("HI SHAWN")
-
         // Get all block hashes
         for (let i = startBlock; i < endBlock; i = i + step) {
             if (!global.blockHashes.find(x => x.block == i)) {
@@ -57,11 +55,7 @@ async function getWeightInRange(startBlock, endBlock) {
             }
         }
 
-        console.log("SHAWN PROMISES", promises)
-
         var results = await Promise.all(promises);
-
-        console.log("SHAWN RESULTS", results)
 
         for (let i = 0; i < results.length; i = i + 2) {
             global.blockHashes.push({
@@ -82,12 +76,10 @@ async function getWeightInRange(startBlock, endBlock) {
                 let weightPromise = substrate.query.system.blockWeight.at(blockHash);
                 // Create a promise to get the timestamp for that block
                 let timePromise = substrate.query.timestamp.now.at(blockHash);
-                // Push data to a linear array of promises to run in parellel.
+                // Push data to a linear array of promises to run in parallel.
                 promises.push(i, weightPromise, timePromise);
             }
         }
-
-        console.log("SHAWN", promises)
 
         // Call all promises in parallel for speed, result is array of {block: <block>, weight: <weight>, timestamp: <time>}
         var results = await Promise.all(promises);
@@ -95,11 +87,13 @@ async function getWeightInRange(startBlock, endBlock) {
         // Restructure the data into an array of objects
         var weights = [];
         for (let i = 0; i < results.length; i = i + 3) {
-            let block = results[i];
+			let block = results[i];
             let weight = results[i + 1];
-            let normal = weight.normal.toNumber();
-            let operational = weight.operational.toNumber();
-            let total = normal + operational;
+			console.log(weight.toHuman());
+			let normal = weight.normal.toNumber();
+			let operational = weight.operational.toNumber();
+			let mandatory = weight.mandatory.toNumber();
+            let total = normal + operational + mandatory;
             let time = new Date(results[i + 2].toNumber());
 
             weights.push({
@@ -107,6 +101,7 @@ async function getWeightInRange(startBlock, endBlock) {
                 weight: total,
                 normal: normal,
                 operational: operational,
+				mandatory: mandatory,
                 time: time
             });
         }
@@ -159,17 +154,32 @@ function createTraces(weights) {
         name: 'Operational'
     };
 
+	var mandatory = {
+		type: 'scatter',
+		mode: 'lines',
+		x: unpack(weights, 'block'),
+		y: unpack(weights, 'mandatory'),
+		hoverinfo: 'y+text',
+		text: unpack(weights, 'time'),
+		name: 'Mandatory'
+	};
+
     var max_weight = {
         type: 'scatter',
         mode: 'lines',
         x: unpack(weights, 'block'),
-        y: Array(weights.length).fill(substrate.consts.system.maximumBlockWeight.toNumber()),
+        y: Array(weights.length).fill(
+			(substrate.consts.system.blockWeights
+				? substrate.consts.system.blockWeights.maxBlock // new style
+				: substrate.consts.system.maximumBlockWeight    // old style
+			).toNumber()
+		),
         hoverinfo: 'y+text',
         text: unpack(weights, 'time'),
         name: 'Max Weight'
     };
 
-    return [max_weight, total, normal, operational]
+    return [max_weight, total, normal, operational, mandatory]
 }
 
 // Create the plotly.js graph
@@ -238,7 +248,12 @@ async function connect() {
     if (!window.substrate || global.endpoint != endpoint) {
         const provider = new api.WsProvider(endpoint);
         document.getElementById('output').innerHTML = 'Connecting to Endpoint...';
-        window.substrate = await api.ApiPromise.create({ provider });
+        window.substrate = await api.ApiPromise.create({
+			provider,
+			types: {
+				ConsumedWeight: { normal: 'u64', operational: 'u64', mandatory: 'u64' },
+			}
+		});
         global.endpoint = endpoint;
         document.getElementById('output').innerHTML = 'Connected';
     }
@@ -253,11 +268,9 @@ async function graphWeight() {
         // Find the intial range, from first block to current block
         var startBlock, endBlock;
 
-        if (document.getElementById('startBlock').value) {
-            startBlock = parseInt(document.getElementById('startBlock').value);
-        } else {
-            startBlock = parseInt(await getFirstBlock());
-        }
+		// blocks per day for 6 second blockchains
+		const DAY = 10 * 60 * 24;
+		const WEEK = 7 * DAY;
 
         if (document.getElementById('endBlock').value) {
             endBlock = parseInt(document.getElementById('endBlock').value);
@@ -265,6 +278,12 @@ async function graphWeight() {
             endBlock = parseInt(await substrate.derive.chain.bestNumber());
             console.log('End Block:', endBlock);
         }
+
+		if (document.getElementById('startBlock').value) {
+			startBlock = parseInt(document.getElementById('startBlock').value);
+		} else {
+			startBlock = parseInt(endBlock - WEEK);
+		}
 
         // Check that the range is valid
         if (startBlock >= 0 && startBlock < endBlock) {
