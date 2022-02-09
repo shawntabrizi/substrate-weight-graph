@@ -1,3 +1,5 @@
+const { WsProvider, ApiPromise } = polkadotApi;
+
 // Global Variables
 var global = {
     weights: [],
@@ -87,12 +89,12 @@ async function getWeightInRange(startBlock, endBlock) {
         // Restructure the data into an array of objects
         var weights = [];
         for (let i = 0; i < results.length; i = i + 3) {
-			let block = results[i];
+            let block = results[i];
             let weight = results[i + 1];
-			console.log(weight.toHuman());
-			let normal = weight.normal.toNumber();
-			let operational = weight.operational.toNumber();
-			let mandatory = weight.mandatory.toNumber();
+            console.log(weight.toHuman());
+            let normal = weight.normal.toNumber();
+            let operational = weight.operational.toNumber();
+            let mandatory = weight.mandatory.toNumber();
             let total = normal + operational + mandatory;
             let time = new Date(results[i + 2].toNumber());
 
@@ -101,7 +103,7 @@ async function getWeightInRange(startBlock, endBlock) {
                 weight: total,
                 normal: normal,
                 operational: operational,
-				mandatory: mandatory,
+                mandatory: mandatory,
                 time: time
             });
         }
@@ -117,7 +119,7 @@ async function getWeightInRange(startBlock, endBlock) {
 
 // Unpack a multi-dimensional object
 function unpack(rows, index) {
-    return rows.map(function(row) {
+    return rows.map(function (row) {
         return row[index];
     });
 }
@@ -154,26 +156,26 @@ function createTraces(weights) {
         name: 'Operational'
     };
 
-	var mandatory = {
-		type: 'scatter',
-		mode: 'lines',
-		x: unpack(weights, 'block'),
-		y: unpack(weights, 'mandatory'),
-		hoverinfo: 'y+text',
-		text: unpack(weights, 'time'),
-		name: 'Mandatory'
-	};
+    var mandatory = {
+        type: 'scatter',
+        mode: 'lines',
+        x: unpack(weights, 'block'),
+        y: unpack(weights, 'mandatory'),
+        hoverinfo: 'y+text',
+        text: unpack(weights, 'time'),
+        name: 'Mandatory'
+    };
 
     var max_weight = {
         type: 'scatter',
         mode: 'lines',
         x: unpack(weights, 'block'),
         y: Array(weights.length).fill(
-			(substrate.consts.system.blockWeights
-				? substrate.consts.system.blockWeights.maxBlock // new style
-				: substrate.consts.system.maximumBlockWeight    // old style
-			).toNumber()
-		),
+            (substrate.consts.system.blockWeights
+                ? substrate.consts.system.blockWeights.maxBlock // new style
+                : substrate.consts.system.maximumBlockWeight    // old style
+            ).toNumber()
+        ),
         hoverinfo: 'y+text',
         text: unpack(weights, 'time'),
         name: 'Max Weight'
@@ -210,7 +212,7 @@ function sortBlock(a, b) {
 }
 
 // When the graph is zoomed in, get more data points for that range
-$('#graph').on('plotly_relayout', async function(eventdata) {
+$('#graph').on('plotly_relayout', async function (eventdata) {
     // Get the new block range from the eventdata from the resize
     var startBlock = Math.floor(eventdata.target.layout.xaxis.range[0]);
     var endBlock = Math.ceil(eventdata.target.layout.xaxis.range[1]);
@@ -246,14 +248,14 @@ function reset() {
 async function connect() {
     let endpoint = document.getElementById('endpoint').value;
     if (!window.substrate || global.endpoint != endpoint) {
-        const provider = new api.WsProvider(endpoint);
+        const provider = new WsProvider(endpoint);
         document.getElementById('output').innerHTML = 'Connecting to Endpoint...';
-        window.substrate = await api.ApiPromise.create({
-			provider,
-			types: {
-				ConsumedWeight: { normal: 'u64', operational: 'u64', mandatory: 'u64' },
-			}
-		});
+        window.substrate = await ApiPromise.create({
+            provider,
+            types: {
+                ConsumedWeight: { normal: 'u64', operational: 'u64', mandatory: 'u64' },
+            }
+        });
         global.endpoint = endpoint;
         document.getElementById('output').innerHTML = 'Connected';
     }
@@ -268,9 +270,9 @@ async function graphWeight() {
         // Find the intial range, from first block to current block
         var startBlock, endBlock;
 
-		// blocks per day for 6 second blockchains
-		const DAY = 10 * 60 * 24;
-		const WEEK = 7 * DAY;
+        // blocks per day for 6 second blockchains
+        const DAY = 10 * 60 * 24;
+        const WEEK = 7 * DAY;
 
         if (document.getElementById('endBlock').value) {
             endBlock = parseInt(document.getElementById('endBlock').value);
@@ -279,11 +281,11 @@ async function graphWeight() {
             console.log('End Block:', endBlock);
         }
 
-		if (document.getElementById('startBlock').value) {
-			startBlock = parseInt(document.getElementById('startBlock').value);
-		} else {
-			startBlock = parseInt(endBlock - WEEK);
-		}
+        if (document.getElementById('startBlock').value) {
+            startBlock = parseInt(document.getElementById('startBlock').value);
+        } else {
+            startBlock = parseInt(endBlock - WEEK);
+        }
 
         // Check that the range is valid
         if (startBlock >= 0 && startBlock < endBlock) {
@@ -327,7 +329,7 @@ function parseQueryStrings() {
 }
 
 // On load, check if querystrings are present
-window.onload = async function() {
+window.onload = async function () {
     await connect();
     // Check for querystrings
     var queryStrings = parseQueryStrings();
